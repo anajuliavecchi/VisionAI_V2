@@ -1,0 +1,581 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Face = {
+  name: string;
+  authorized: boolean;
+  score: number;
+  margin: number;
+  bbox: number[];
+};
+
+type Status = {
+  status: string;
+  environment: string;
+  people_count: number;
+  authorized_count: number;
+  unauthorized_count: number;
+  faces: Face[];
+  camera_online: boolean;
+  ai_online: boolean;
+  fps: number;
+  inference_ms: number;
+};
+
+const API_URL = "http://localhost:8000";
+
+export default function Home() {
+  const [status, setStatus] = useState<Status>({
+    status: "initializing",
+    environment: "Conectando ao VisionAI...",
+    people_count: 0,
+    authorized_count: 0,
+    unauthorized_count: 0,
+    faces: [],
+    camera_online: false,
+    ai_online: false,
+    fps: 0,
+    inference_ms: 0,
+  });
+
+  useEffect(() => {
+    const updateStatus = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/status`, {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error();
+        }
+
+        const data = await response.json();
+
+        setStatus(data);
+      } catch {
+        setStatus((previous) => ({
+          ...previous,
+          environment: "AGUARDANDO CONEXÃO COM O VISIONAI",
+          camera_online: false,
+          ai_online: false,
+        }));
+      }
+    };
+
+    updateStatus();
+
+    const interval = setInterval(updateStatus, 300);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
+  const safe = status.unauthorized_count === 0;
+
+  return (
+    <main className="min-h-screen bg-[#080b12] text-white">
+      <div className="flex min-h-screen">
+
+        {/* ===================================================
+            SIDEBAR
+        =================================================== */}
+
+        <aside className="hidden w-64 flex-col border-r border-white/10 bg-[#0c1018] md:flex">
+
+          <div className="border-b border-white/10 px-6 py-6">
+            <h1 className="text-2xl font-bold tracking-wide">
+              VISION
+              <span className="text-cyan-400">AI</span>
+            </h1>
+
+            <p className="mt-1 text-xs text-gray-500">
+              Monitoramento inteligente
+            </p>
+          </div>
+
+          <nav className="flex-1 px-4 py-6">
+
+            <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+              Monitoramento
+            </p>
+
+            <div className="space-y-2">
+
+              {[
+                "Visão geral",
+                "Câmeras",
+                "Alertas",
+                "Pessoas autorizadas",
+                "Relatórios",
+                "Configurações",
+              ].map((item, index) => (
+
+                <button
+                  key={item}
+                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left ${
+                    index === 0
+                      ? "bg-cyan-400/10 text-cyan-400"
+                      : "text-gray-400"
+                  }`}
+                >
+
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-sm">
+
+                    {index === 0
+                      ? "⌂"
+                      : index === 1
+                      ? "▣"
+                      : index === 2
+                      ? "!"
+                      : index === 3
+                      ? "♙"
+                      : index === 4
+                      ? "◫"
+                      : "⚙"}
+
+                  </span>
+
+                  <span className="text-sm font-medium">
+                    {item}
+                  </span>
+
+                </button>
+
+              ))}
+
+            </div>
+
+          </nav>
+
+          <div className="border-t border-white/10 p-4">
+
+            <div className="rounded-xl bg-green-500/5 p-4">
+
+              <div className="flex items-center gap-2">
+
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    status.camera_online && status.ai_online
+                      ? "bg-green-400"
+                      : "bg-yellow-400"
+                  }`}
+                />
+
+                <span className="text-xs font-medium">
+
+                  {status.camera_online && status.ai_online
+                    ? "Monitoramento ativo"
+                    : "Aguardando sistema"}
+
+                </span>
+
+              </div>
+
+              <p className="mt-2 text-xs text-gray-600">
+                VisionAI V2
+              </p>
+
+            </div>
+
+          </div>
+
+        </aside>
+
+        {/* ===================================================
+            ÁREA PRINCIPAL
+        =================================================== */}
+
+        <div className="flex-1">
+
+          {/* HEADER */}
+
+          <header className="border-b border-white/10 bg-[#0c1018]">
+
+            <div className="flex items-center justify-between px-6 py-5 md:px-8">
+
+              <div>
+
+                <p className="text-xs uppercase tracking-wider text-gray-500">
+                  Monitoramento de segurança
+                </p>
+
+                <h2 className="mt-1 text-2xl font-bold">
+                  Visão geral
+                </h2>
+
+              </div>
+
+              <div
+                className={`flex items-center gap-3 rounded-full border px-4 py-2 ${
+                  safe
+                    ? "border-green-500/20 bg-green-500/10"
+                    : "border-red-500/30 bg-red-500/10"
+                }`}
+              >
+
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    safe
+                      ? "bg-green-400"
+                      : "bg-red-400"
+                  }`}
+                />
+
+                <span
+                  className={`text-sm ${
+                    safe
+                      ? "text-green-400"
+                      : "text-red-400"
+                  }`}
+                >
+
+                  {safe
+                    ? "Ambiente seguro"
+                    : "Atenção"}
+
+                </span>
+
+              </div>
+
+            </div>
+
+          </header>
+
+          {/* CONTEÚDO */}
+
+          <div className="p-6 md:p-8">
+
+            {/* =================================================
+                SITUAÇÃO
+            ================================================= */}
+
+            <section
+              className={`rounded-2xl border p-6 ${
+                safe
+                  ? "border-green-500/30 bg-green-500/5"
+                  : "border-red-500/40 bg-red-500/10"
+              }`}
+            >
+
+              <div className="flex items-center gap-5">
+
+                <div
+                  className={`flex h-16 w-16 items-center justify-center rounded-2xl text-3xl ${
+                    safe
+                      ? "bg-green-500/10"
+                      : "bg-red-500/10"
+                  }`}
+                >
+
+                  {safe ? "✓" : "!"}
+
+                </div>
+
+                <div>
+
+                  <p
+                    className={`text-xs font-semibold uppercase tracking-widest ${
+                      safe
+                        ? "text-green-400"
+                        : "text-red-400"
+                    }`}
+                  >
+                    Situação atual
+                  </p>
+
+                  <h3 className="mt-1 text-3xl font-bold">
+                    {status.environment}
+                  </h3>
+
+                  <p className="mt-1 text-sm text-gray-400">
+
+                    {safe
+                      ? "Nenhuma pessoa não autorizada foi detectada."
+                      : "Uma pessoa não autorizada foi detectada pela câmera."}
+
+                  </p>
+
+                </div>
+
+              </div>
+
+            </section>
+
+            {/* =================================================
+                CARDS
+            ================================================= */}
+
+            <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+              <Card
+                title="Pessoas no ambiente"
+                value={status.people_count}
+                description="Detectadas pela câmera"
+              />
+
+              <Card
+                title="Pessoas autorizadas"
+                value={status.authorized_count}
+                description="Reconhecimento positivo"
+                green
+              />
+
+              <Card
+                title="Não autorizadas"
+                value={status.unauthorized_count}
+                description="Requer atenção"
+                danger={status.unauthorized_count > 0}
+              />
+
+              <Card
+                title="Câmera principal"
+                value={
+                  status.camera_online
+                    ? "ONLINE"
+                    : "OFFLINE"
+                }
+                description="CAM-01"
+                green={status.camera_online}
+              />
+
+            </section>
+
+            {/* =================================================
+                CÂMERA
+            ================================================= */}
+
+            <section className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+
+              <div className="rounded-2xl border border-white/10 bg-[#0c1018] p-6 xl:col-span-2">
+
+                <div className="mb-5 flex items-center justify-between">
+
+                  <div>
+
+                    <h3 className="text-lg font-semibold">
+                      Monitoramento ao vivo
+                    </h3>
+
+                    <p className="text-sm text-gray-500">
+                      Câmera principal • CAM-01
+                    </p>
+
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-green-400">
+
+                    <span className="h-2 w-2 rounded-full bg-green-400" />
+
+                    AO VIVO
+
+                  </div>
+
+                </div>
+
+                <div className="overflow-hidden rounded-xl border border-white/5 bg-black">
+
+                  <iframe
+                    src={`${API_URL}/video`}
+                    title="Monitoramento VisionAI"
+                    className="block w-full border-0"
+                    style={{
+                      aspectRatio: "4 / 3",
+                      minHeight: "480px",
+                    }}
+                  />
+
+                </div>
+
+              </div>
+
+              {/* =================================================
+                  SITUAÇÃO DO AMBIENTE
+              ================================================= */}
+
+              <div className="rounded-2xl border border-white/10 bg-[#0c1018] p-6">
+
+                <h3 className="text-lg font-semibold">
+                  Situação do ambiente
+                </h3>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Informações para o operador
+                </p>
+
+                <div className="mt-6 space-y-3">
+
+                  <div
+                    className={`rounded-xl p-4 ${
+                      safe
+                        ? "bg-green-500/5"
+                        : "bg-red-500/10"
+                    }`}
+                  >
+
+                    <p
+                      className={`text-sm font-semibold ${
+                        safe
+                          ? "text-green-400"
+                          : "text-red-400"
+                      }`}
+                    >
+
+                      {safe
+                        ? "Tudo normal"
+                        : "Atenção necessária"}
+
+                    </p>
+
+                    <p className="mt-1 text-xs text-gray-500">
+
+                      {safe
+                        ? "Ambiente sob monitoramento"
+                        : "Pessoa não autorizada detectada"}
+
+                    </p>
+
+                  </div>
+
+                  {status.faces.map((face, index) => (
+
+                    <div
+                      key={`${face.name}-${index}`}
+                      className="rounded-xl bg-white/5 p-4"
+                    >
+
+                      <p className="text-xs uppercase tracking-wider text-gray-600">
+                        Pessoa identificada
+                      </p>
+
+                      <div className="mt-2 flex items-center justify-between">
+
+                        <p className="font-semibold">
+
+                          {face.authorized
+                            ? face.name
+                            : "Desconhecida"}
+
+                        </p>
+
+                        <span
+                          className={`text-xs font-semibold ${
+                            face.authorized
+                              ? "text-green-400"
+                              : "text-red-400"
+                          }`}
+                        >
+
+                          {face.authorized
+                            ? "AUTORIZADA"
+                            : "NÃO AUTORIZADA"}
+
+                        </span>
+
+                      </div>
+
+                      <p className="mt-2 text-xs text-gray-500">
+
+                        Confiança:{" "}
+                        {(face.score * 100).toFixed(1)}%
+
+                      </p>
+
+                    </div>
+
+                  ))}
+
+                  <div className="rounded-xl bg-white/5 p-4">
+
+                    <p className="text-xs uppercase tracking-wider text-gray-600">
+                      Desempenho
+                    </p>
+
+                    <div className="mt-3 flex justify-between text-sm">
+
+                      <span className="text-gray-400">
+                        FPS
+                      </span>
+
+                      <span>
+                        {status.fps}
+                      </span>
+
+                    </div>
+
+                    <div className="mt-2 flex justify-between text-sm">
+
+                      <span className="text-gray-400">
+                        InsightFace
+                      </span>
+
+                      <span>
+                        {status.inference_ms} ms
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </section>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </main>
+  );
+}
+
+/* ============================================================
+   CARD
+============================================================ */
+
+function Card({
+  title,
+  value,
+  description,
+  green = false,
+  danger = false,
+}: {
+  title: string;
+  value: string | number;
+  description: string;
+  green?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#0c1018] p-6">
+
+      <p className="text-sm text-gray-400">
+        {title}
+      </p>
+
+      <h3
+        className={`mt-3 text-3xl font-bold ${
+          danger
+            ? "text-red-400"
+            : green
+            ? "text-green-400"
+            : "text-white"
+        }`}
+      >
+
+        {value}
+
+      </h3>
+
+      <p className="mt-2 text-xs text-gray-500">
+        {description}
+      </p>
+
+    </div>
+  );
+}
